@@ -1,0 +1,202 @@
+POST /users
+
+Purpose:
+Register a new user.
+
+Request:
+{
+    "name": "vansh tangri",
+    "password": "example_password"
+    "Phone No.": "9999999999"
+}
+
+Response:
+{
+    "user_id": 101,
+    "message": "User registered successfully"
+}
+
+POST/drivers
+
+Purpose:
+Register a new driver
+
+Request:
+{
+    "driver_name": "xyz"
+    "password": "fake_pass"
+    "vehicle_type": "car"
+    "vehicle_no": "AL_BC_1234"
+}
+Response:
+{
+    "driver_id": 201
+    "message": "driver registered successfully"
+}
+
+| `POST` | `/rides`   
+Request a new ride      
+
+Request{
+    "user_id":101
+     "pickup": {
+        "latitude": 15.4901,
+        "longitude": 73.8278
+    },
+    "destination": {
+        "latitude": 15.5150,
+        "longitude": 73.8310
+    },
+    "safe_mode": true
+}
+Response
+{
+    "ride_id": 501,
+    "status": "REQUESTED",
+    "message": "Ride requested successfully"
+}
+
+GET /rides/843
+GET does not need a request
+Response
+{
+    "ride_id": 843,
+    "status": "DRIVER_ON_THE_WAY",
+    "driver": {
+        "driver_id": 201,
+        "vehicle_no": "AB_NC_1234",
+        "location": {
+            "latitude": 24.3532,
+            "longitude": 82.14324
+        }
+    }
+}
+
+POST/Driver accepts ride
+Request{
+    "ride_id":501
+
+}
+Response{
+    "ride_id": 501,
+    "status": "ACCEPTED",
+    "message": "Ride accepted successfully"
+}
+
+POST/ cancel a ride
+
+Request1
+{
+    "user_id": 101,
+    "reason": "Entered wrong location"
+
+}
+Request2
+{
+    "driver_id": 201,
+    "reason": "Vehicle breakdown"
+}
+Response{
+    "status": "ride cancelled"
+}
+
+POST/Update drivers location
+Request{
+    "driver_id":201
+    "latitude": 25.8474,
+    "longitude": 34.53232
+}
+Response{
+    "message":"location updated successfully"
+}
+
+POST/Add a stop
+Request{
+    "user_id":101
+    "ride_id":501
+    "stop":{
+        "longitude":75.47394
+        "latitude":83.5849
+    }
+}
+Response{
+    "message": "stop added"
+}
+
+GET/get route
+Request{
+    "user_id": 101
+    "ride_id": 201
+}
+Response1
+{
+    "ride_id": 501,
+    "route": {
+        "distance_km": 8.4,
+        "eta_minutes": 18,
+        "risk_score": 0.23,
+        "geometry": [
+            {
+                "latitude": 15.4901,
+                "longitude": 73.8278
+            },
+            {
+                "latitude": 15.4950,
+                "longitude": 73.8100
+            },
+            {
+                "latitude": 15.5150,
+                "longitude": 73.8310
+            }
+        ]
+    }
+}
+Response2
+{
+    "ride_id": 501,
+    "routes": [
+        {
+            "type": "FASTEST",
+            "distance_km": 8.1,
+            "eta_minutes": 16,
+            "risk_score": 0.42
+        },
+        {
+            "type": "SAFER",
+            "distance_km": 8.7,
+            "eta_minutes": 19,
+            "risk_score": 0.18
+        }
+    ]
+}
+POST /rides/{ride_id}/start
+
+Request{}
+{
+    "ride_id": 501,
+    "status": "ONGOING",
+    "message": "Trip started successfully"
+}
+
+POST /rides/{ride_id}/complete
+Request{}
+Response1
+{
+    "ride_id": 501,
+    "status": "COMPLETED",
+    "message": "Trip completed successfully"
+}
+POST /rides/{ride_id}/stops
+request{
+    "location": {
+        "lat": 15.5943,
+        "lng": 73.8142
+    }
+}
+Response{
+    "stop_id": 12,
+    "ride_id": 501,
+    "sequence_order": 1,
+    "status": "PENDING",
+    "message": "Stop added successfully"
+}

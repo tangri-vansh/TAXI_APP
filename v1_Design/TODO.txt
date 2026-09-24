@@ -1,0 +1,1 @@
+Deferred: ride timeout/expiry (auto-cancel REQUESTED rides after N seconds with no driver) is intentionally not implemented until WebSockets are added, since the notification mechanism and the timeout mechanism are being built together. Until then, a REQUESTED ride waits indefinitely for a driver to accept or the rider to cancel manually.

@@ -1,0 +1,25 @@
+Core application
+
+    User
+    Driver
+    Ride
+    DriverLocation
+
+Routing
+
+    Route / route information associated with a ride
+
+Safety
+
+    CrimeIncident
+    RiskZone or RiskScore
+
+Relations
+    User ---- Ride
+    Driver --- Ride
+    User --- Driver
+    Driver --- DriverLocation
+    Ride --- Route
+    RiskZone --- Route
+    RiskZone -- CrimeIncident
+

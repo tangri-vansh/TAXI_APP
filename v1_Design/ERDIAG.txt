@@ -1,0 +1,82 @@
+┌──────────────┐          ┌──────────────┐
+│     USER     │          │    DRIVER    │
+├──────────────┤          ├──────────────┤
+│ user_id (PK) │          │ driver_id PK │
+│ name         │          │ user_id (FK) │
+│ phone        │          | Vehicle No.  |           
+ Passwords     |          |  status      │
+└──────┬───────┘          └──────┬───────┘
+       │ 1                       │ 1
+       │                         │
+       │ N                       │ N
+       ▼                         ▼
+┌──────────────┐          ┌──────────────┐
+│     RIDE     │          │DRIVER_LOCATION│
+├──────────────┤          ├──────────────┤
+│ ride_id (PK) │          │ location_id  │
+│ rider_id FK  │          │ driver_id FK │
+│ driver_id FK │          │ location     │
+│ pickup       │          │ timestamp    │
+│ destination  │          └──────────────┘
+│ status       │-
+└──────┬───────┘ |
+       │ 1       |N
+       │         |-------->┌──────────────────┐
+       │ N                │    RIDE_STOP      │
+       ▼                  ├──────────────────┤
+┌──────────────┐          │ stop_id (PK)      │
+│    ROUTE     │          │ ride_id (FK)      │
+├──────────────┤          │ location          │
+│ route_id PK  │          │ sequence_order    │
+│ ride_id FK   │          │ status            │
+│ geometry     │          └──────────────────┘
+│ distance     │
+│ eta          │
+│ risk_score   │
+└──────────────┘
+
+
+CRIME_INCIDENT
+----------------
+crime_id
+crime_type
+latitude
+longitude
+timestamp
+    |
+    | aggrigates to 
+    |
+RISK_ZONE
+----------------
+zone_id
+geometry
+crime_count
+risk_score
+
+####################################################
+Raw Crime Incidents
+        ↓
+    AGGREGATION
+        ↓
+   Risk Zones / Risk Scores
+        ↓
+Map risk onto roads/road segments
+        ↓
+   Route Optimizer
+        ↓
+Route with:
+time + distance + risk
+####################################################
+
+IN VERSION-1 WE USE RISK ZONE WHICH ASSIGNS EVERY ROAD IN THE ZONE WITH THE SAME CRIME Scores
+WE CAN LATER OPTIMISE IT TO RISK-SEGMENT SO THAT WE CAN MORE PRECISELY ASSIGN SCORE TO THE ROADS
+
+
+
+
+
+
+
+
+
+

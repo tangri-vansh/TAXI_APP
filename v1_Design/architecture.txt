@@ -1,0 +1,33 @@
+RIDER REQUIREMENTS
+    login/registration
+    entering pickUp/Destination
+    Choosing vehicle
+    Choose fastest/safety-aware route
+    See driver/ride status
+    Cancel ride
+    View ride history
+
+Driver
+
+    Register/login
+    Go online/offline
+    Send location
+    Receive ride request
+    Accept/reject
+    Start/complete ride
+
+System
+
+    Find nearby drivers
+    Assign a driver
+    Calculate route + ETA
+    Calculate route safety score
+    Maintain ride state
+
+DATABASE DESIGN
+    Rider/User
+    Driver
+    Ride
+    Route
+    DriverLocation
+    GEOSAFETY DATA

@@ -1,0 +1,12 @@
+REQUESTED → ACCEPTED → ONGOING → COMPLETED
+REQUESTED → CANCELLED
+ACCEPTED  → CANCELLED
+
+
+#################################
+NEXT VERSION
+REQUESTED --(driver accepts)--> ACCEPTED --(driver starts)--> ONGOING --(driver completes)--> COMPLETED
+REQUESTED --(rider cancels)--> CANCELLED
+ACCEPTED  --(rider OR driver cancels)--> CANCELLED
+
+##################################

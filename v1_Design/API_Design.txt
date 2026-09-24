@@ -1,0 +1,16 @@
+| Method | Endpoint                        | Purpose                  |
+| ------ | ------------------------------- | ------------------------ |
+| `POST` | `/users`                        | Register a new user      |
+| `POST` | `/drivers`                      | Register a new driver    |
+| `GET`  |`/drivers/available?lat={lat}&long={long} | Get available drivers    |
+| `POST` | `/rides`                        | Request a new ride       |
+| `GET`  | `/rides/{ride_id}`              | Get ride details         |
+| `POST` | `/rides/{ride_id}/accept`       | Driver accepts a ride    |
+| `POST` | `/rides/{ride_id}/cancel`       | Cancel a ride            |
+| `POST` | `/drivers/{driver_id}/location` | Update driver's location |
+| `POST` | `/rides/{ride_id}/stops`        | Add a stop to a ride     |
+| `GET`  | `/rides/{ride_id}/route`        | Get route for a ride     |
+| POST   | /rides/{ride_id}/start          | Ride started             |
+| POST   | /rides/{ride_id}/end            | Ride ended               |
+| POST   | /rides/{ride_id}/stops          | Add a stop 
+
