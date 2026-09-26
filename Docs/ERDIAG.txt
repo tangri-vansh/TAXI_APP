@@ -3,7 +3,7 @@
 ├──────────────┤          ├──────────────┤
 │ user_id (PK) │          │ driver_id PK │
 │ name         │          │ user_id (FK) │
-│ phone        │          | Vehicle No.  |           
+│ phone        │          | Plate___No.  |           
  Passwords     |          |  status      │
 └──────┬───────┘          └──────┬───────┘
        │ 1                       │ 1
