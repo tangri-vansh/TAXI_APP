@@ -65,6 +65,11 @@ func main() {
 	userRepository := repository.NewUserRepository(db)
 	userService := service.NewUserService(userRepository)
 	userHandler := handler.NewUserHandler(userService)
+	driverRepository := repository.NewDriverRepository(db)
+	driverService := service.NewDriverService(driverRepository)
+	driverLocationRepository := repository.NewDriverLocationRepository(db)
+	driverLocationService := service.NewDriverLocationService(driverLocationRepository)
+	driverHandler := handler.NewDriverHandler(driverService, driverLocationService)
 
 	// 3. Create the HTTP router.
 	mux := http.NewServeMux()
@@ -74,6 +79,9 @@ func main() {
 
 	// 5. Register the user creation endpoint.
 	mux.HandleFunc("POST /users", userHandler.CreateUser)
+	mux.HandleFunc("POST /drivers", driverHandler.CreateDriver)
+	mux.HandleFunc("POST /drivers/{driver_id}/location", driverHandler.UpdateLocation)
+	mux.HandleFunc("GET /drivers/available", driverHandler.GetAvailableDrivers)
 
 	// 6. Start the HTTP server.
 	fmt.Println("Server running on http://localhost:8080")
