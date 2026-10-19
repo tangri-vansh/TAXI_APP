@@ -7,7 +7,11 @@ import (
 	"log"
 	"net/http"
 
-	_ "github.com/lib/pq" // PostgreSQL driver (imported for its side-effects)
+	_ "github.com/lib/pq"
+
+	"safe-ride/internal/handler"
+	"safe-ride/internal/repository"
+	"safe-ride/internal/service"
 )
 
 // Global database connection pool
@@ -17,7 +21,7 @@ func initDB() {
 	// Connection cstring matching credentials from docker-compose.yml
 	//ssl mode needs to change when deploying
 	connStr := "host=localhost port=5432 user=postgres password=postgrespassword dbname=safe_ride sslmode=disable"
-	
+
 	var err error
 	// Open opens a database specified by its driver name and driver-specific data source name
 	db, err = sql.Open("postgres", connStr)
@@ -53,15 +57,28 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	// Initialize database connection
+	// 1. Initialize the database connection.
 	initDB()
-	defer db.Close() // Ensure the connection closes when main() exits
+	defer db.Close()
 
-	// Register route
-	http.HandleFunc("/health", healthHandler)
+	// 2. Create the user feature's dependency chain.
+	userRepository := repository.NewUserRepository(db)
+	userService := service.NewUserService(userRepository)
+	userHandler := handler.NewUserHandler(userService)
 
+	// 3. Create the HTTP router.
+	mux := http.NewServeMux()
+
+	// 4. Register the existing health endpoint.
+	mux.HandleFunc("GET /health", healthHandler)
+
+	// 5. Register the user creation endpoint.
+	mux.HandleFunc("POST /users", userHandler.CreateUser)
+
+	// 6. Start the HTTP server.
 	fmt.Println("Server running on http://localhost:8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+
+	if err := http.ListenAndServe(":8080", mux); err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}
 }
