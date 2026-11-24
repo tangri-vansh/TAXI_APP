@@ -7,12 +7,38 @@ services:
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the environment or .env}
       POSTGRES_DB: safe_ride
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  valhalla:
+    image: safe-ride-valhalla:3.9.1-safe-mode
+    build:
+      context: .
+      dockerfile: backend/internal/routing/valhalla.Dockerfile
+      args:
+        VALHALLA_VERSION: "3.9.1"
+    container_name: safe_ride_valhalla
+    profiles: ["routing"]
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    environment:
+      # Massachusetts OSM extract covers Boston and nearby roads. Override only
+      # when intentionally routing in a different region.
+      tile_urls: ${VALHALLA_TILE_URL:-https://download.geofabrik.de/north-america/us/massachusetts-latest.osm.pbf}
+      server_threads: 2
+      serve_tiles: "True"
+      use_tiles_ignore_pbf: "False"
+      use_default_speeds_config: "False"
+
+    volumes:
+      # Keep Boston graph tiles isolated from the older Delhi tile volume.
+      - valhalla_boston_files:/custom_files
+
 volumes:
   postgres_data:
+  valhalla_boston_files:

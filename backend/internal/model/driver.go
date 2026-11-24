@@ -20,3 +20,21 @@ type AvailableDriver struct {
 	Location    Coordinates `json:"location"`
 	DistanceM   float64     `json:"distance_meters"`
 }
+
+type Ride struct {
+	RideID      int64       `json:"ride_id"`
+	RiderID     int64       `json:"rider_id"`
+	DriverID    *int64      `json:"driver_id,omitempty"`
+	Pickup      Coordinates `json:"pickup"`
+	Destination Coordinates `json:"destination"`
+	Status      string      `json:"status"`
+	SafeMode    bool        `json:"safe_mode"`
+}
+
+type RideStop struct {
+	StopID        int64       `json:"stop_id"`
+	RideID        int64       `json:"ride_id"`
+	Location      Coordinates `json:"location"`
+	SequenceOrder int         `json:"sequence_order"`
+	Status        string      `json:"status"`
+}

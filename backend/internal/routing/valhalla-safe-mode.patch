@@ -1,0 +1,281 @@
+diff --git a/proto/descriptors/options.proto b/proto/descriptors/options.proto
+index e77e3a3..f7f0485 100644
+--- a/proto/descriptors/options.proto
++++ b/proto/descriptors/options.proto
+@@ -136,6 +136,15 @@ message Costing {
+   }
+ 
+   message Options {
++    message SafeModeRiskZone {
++      message Vertex {
++        double lat = 1;
++        double lon = 2;
++      }
++      repeated Vertex vertices = 1;
++      float normalized_risk = 2;
++    }
++
+     oneof has_maneuver_penalty {
+       float maneuver_penalty = 1;
+     }
+@@ -362,6 +371,8 @@ message Costing {
+     oneof has_low_class_factor {
+       float low_class_factor = 97;
+     }
++    float safe_mode_beta = 98;
++    repeated SafeModeRiskZone safe_mode_risk_zones = 99;
+   }
+ 
+   oneof has_options {
+diff --git a/src/sif/autocost.cc b/src/sif/autocost.cc
+index c22a10b..5371b78 100644
+--- a/src/sif/autocost.cc
++++ b/src/sif/autocost.cc
+@@ -10,6 +10,9 @@
+ #include "sif/dynamiccost.h"
+ #include "sif/osrm_car_duration.h"
+ 
++#include <cmath>
++#include <vector>
++
+ #ifdef INLINE_TEST
+ #include "test.h"
+ #include "worker.h"
+@@ -23,6 +26,86 @@ using namespace valhalla::baldr;
+ namespace valhalla {
+ namespace sif {
+ 
++namespace {
++
++using SafeModeRiskZone = Costing::Options::SafeModeRiskZone;
++
++bool point_in_polygon(const PointLL& point, const SafeModeRiskZone& zone) {
++  bool inside = false;
++  const auto& vertices = zone.vertices();
++  if (vertices.size() < 4)
++    return false;
++
++  for (int i = 0, j = vertices.size() - 1; i < vertices.size(); j = i++) {
++    const double xi = vertices.Get(i).lon();
++    const double yi = vertices.Get(i).lat();
++    const double xj = vertices.Get(j).lon();
++    const double yj = vertices.Get(j).lat();
++    const bool crosses = ((yi > point.lat()) != (yj > point.lat())) &&
++                         (point.lng() < (xj - xi) * (point.lat() - yi) / (yj - yi) + xi);
++    if (crosses)
++      inside = !inside;
++  }
++  return inside;
++}
++
++bool edge_midpoint(const DirectedEdge* edge, const graph_tile_ptr& tile, PointLL& midpoint) {
++  if (!edge || !tile)
++    return false;
++  const auto shape = tile->edgeinfo(edge).shape();
++  if (shape.size() < 2)
++    return false;
++
++  double edge_length = 0.0;
++  for (size_t i = 1; i < shape.size(); ++i)
++    edge_length += shape[i - 1].Distance(shape[i]);
++  if (!std::isfinite(edge_length) || edge_length <= 0.0)
++    return false;
++
++  double remaining = edge_length / 2.0;
++  for (size_t i = 1; i < shape.size(); ++i) {
++    const double segment_length = shape[i - 1].Distance(shape[i]);
++    if (remaining <= segment_length) {
++      midpoint = shape[i - 1].PointAlongSegment(shape[i], remaining / segment_length);
++      return true;
++    }
++    remaining -= segment_length;
++  }
++  return false;
++}
++
++bool edge_risk(const DirectedEdge* edge,
++               const graph_tile_ptr& tile,
++               const std::vector<SafeModeRiskZone>& zones,
++               float& risk) {
++  PointLL midpoint;
++  if (!edge_midpoint(edge, tile, midpoint))
++    return false;
++  for (const auto& zone : zones) {
++    if (point_in_polygon(midpoint, zone)) {
++      risk = zone.normalized_risk();
++      return true;
++    }
++  }
++  return false;
++}
++
++Cost add_safe_mode_risk(Cost base_cost,
++                        const DirectedEdge* edge,
++                        const graph_tile_ptr& tile,
++                        const float beta,
++                        const std::vector<SafeModeRiskZone>& zones) {
++  if (beta <= 0.0f)
++    return base_cost;
++  float risk = 0.0f;
++  if (!edge_risk(edge, tile, zones, risk))
++    throw std::runtime_error("Safe Mode encountered an edge without risk-zone coverage");
++  base_cost.cost += beta * risk;
++  return base_cost;
++}
++
++} // namespace
++
+ // Default options/values
+ namespace {
+ 
+@@ -326,6 +409,11 @@ public:
+   virtual bool Allowed(const baldr::DirectedEdge* edge,
+                        const graph_tile_ptr& tile,
+                        uint16_t disallow_mask = kDisallowNone) const override {
++    if (safe_mode_beta_ > 0.0f) {
++      float risk = 0.0f;
++      if (edge->is_shortcut() || !edge_risk(edge, tile, safe_mode_risk_zones_, risk))
++        return false;
++    }
+     bool allow_closures = (!filter_closures_ && !(disallow_mask & kDisallowClosure)) ||
+                           !(flow_mask_ & kCurrentFlowMask);
+     return DynamicCost::Allowed(edge, tile, disallow_mask) && !edge->bss_connection() &&
+@@ -346,12 +434,20 @@ public:
+   float width_;  // Vehicle width in meters
+   float length_; // Vehicle length in meters
+   float weight_; // Vehicle weight in metric tons
++  float safe_mode_beta_;
++  std::vector<SafeModeRiskZone> safe_mode_risk_zones_;
+ };
+ 
+ // Constructor
+ AutoCost::AutoCost(const Costing& costing, uint32_t access_mask)
+-    : DynamicCost(costing, TravelMode::kDrive, access_mask, true) {
++    : DynamicCost(costing, TravelMode::kDrive, access_mask, true),
++      safe_mode_beta_(costing.options().safe_mode_beta()) {
+   const auto& costing_options = costing.options();
++  safe_mode_risk_zones_.assign(costing_options.safe_mode_risk_zones().begin(),
++                               costing_options.safe_mode_risk_zones().end());
++  if (safe_mode_beta_ > 0.0f && safe_mode_risk_zones_.empty()) {
++    throw std::invalid_argument("Safe Mode requires risk-zone polygons");
++  }
+ 
+   // Get the vehicle type - enter as string and convert to enum.
+   // Used to set the surface factor - penalize some roads based on surface type.
+@@ -408,6 +504,12 @@ bool AutoCost::Allowed(const baldr::DirectedEdge* edge,
+                        uint8_t& destonly_access_restr_mask,
+                        bool* edge_destonly) const {
+ 
++  if (safe_mode_beta_ > 0.0f) {
++    float risk = 0.0f;
++    if (edge->is_shortcut() || !edge_risk(edge, tile, safe_mode_risk_zones_, risk))
++      return false;
++  }
++
+   // Check access, U-turn, and simple turn restriction.
+   // Allow U-turns at dead-end nodes in case the origin is inside
+   // a not thru region and a heading selected an edge entering the
+@@ -441,6 +543,12 @@ bool AutoCost::AllowedReverse(const baldr::DirectedEdge* edge,
+                               uint8_t& restriction_idx,
+                               uint8_t& destonly_access_restr_mask,
+                               bool* edge_destonly) const {
++  if (safe_mode_beta_ > 0.0f) {
++    float risk = 0.0f;
++    if (opp_edge->is_shortcut() || !edge_risk(opp_edge, tile, safe_mode_risk_zones_, risk))
++      return false;
++  }
++
+   // Check access, U-turn, and simple turn restriction.
+   // Allow U-turns at dead-end nodes.
+   if (!IsAccessible(opp_edge) || (!pred.deadend() && pred.opp_local_idx() == edge->localedgeidx()) ||
+@@ -494,6 +602,10 @@ Cost AutoCost::EdgeCost(const baldr::DirectedEdge* edge,
+ 
+   float sec = edge->length() * kSpeedFactor[final_speed];
+ 
++  if (safe_mode_beta_ > 0.0f) {
++    return add_safe_mode_risk(Cost(sec, sec), edge, tile, safe_mode_beta_, safe_mode_risk_zones_);
++  }
++
+   if (shortest_) {
+     return Cost(edge->length(), sec);
+   }
+@@ -616,6 +728,8 @@ Cost AutoCost::TransitionCost(const baldr::DirectedEdge* edge,
+   // Account for the user preferring distance
+   c.cost *= inv_distance_factor_;
+ 
++  if (safe_mode_beta_ > 0.0f)
++    c.cost = c.secs;
+   return c;
+ }
+ 
+@@ -688,6 +802,8 @@ Cost AutoCost::TransitionCostReverse(const uint32_t idx,
+   // Account for the user preferring distance
+   c.cost *= inv_distance_factor_;
+ 
++  if (safe_mode_beta_ > 0.0f)
++    c.cost = c.secs;
+   return c;
+ }
+ 
+@@ -703,6 +819,61 @@ void ParseAutoCostOptions(const rapidjson::Document& doc,
+   const auto& json = rapidjson::get_child(doc, costing_options_key.c_str(), dummy);
+ 
+   ParseBaseCostOptions(json, c, kBaseCostOptsConfig, warnings);
++  const auto beta_member = json.FindMember("safe_mode_beta");
++  if (beta_member != json.MemberEnd()) {
++    if (!beta_member->value.IsNumber() || beta_member->value.GetDouble() <= 0.0 ||
++        !std::isfinite(beta_member->value.GetDouble())) {
++      throw std::invalid_argument("safe_mode_beta must be a finite positive number");
++    }
++    co->set_safe_mode_beta(static_cast<float>(beta_member->value.GetDouble()));
++    // Risk costs are defined per base graph edge. Higher-level shortcuts
++    // collapse multiple edges, so Safe Mode searches the base graph only.
++    co->set_disable_hierarchy_pruning(true);
++
++    const auto zones_member = json.FindMember("safe_mode_risk_zones");
++    if (zones_member == json.MemberEnd() || !zones_member->value.IsArray() ||
++        zones_member->value.Empty()) {
++      throw std::invalid_argument("safe_mode_risk_zones must be a non-empty array");
++    }
++    for (const auto& zone_json : zones_member->value.GetArray()) {
++      if (!zone_json.IsObject()) {
++        throw std::invalid_argument("each safe mode risk zone must be an object");
++      }
++      const auto risk_member = zone_json.FindMember("normalized_risk");
++      const auto vertices_member = zone_json.FindMember("vertices");
++      if (risk_member == zone_json.MemberEnd() || !risk_member->value.IsNumber() ||
++          vertices_member == zone_json.MemberEnd() || !vertices_member->value.IsArray() ||
++          vertices_member->value.Size() < 4) {
++        throw std::invalid_argument("risk zones require normalized_risk and at least four vertices");
++      }
++      const double risk = risk_member->value.GetDouble();
++      if (!std::isfinite(risk) || risk < 0.0 || risk > 1.0) {
++        throw std::invalid_argument("normalized_risk must be in [0,1]");
++      }
++      auto* risk_zone = co->add_safe_mode_risk_zones();
++      risk_zone->set_normalized_risk(static_cast<float>(risk));
++      for (const auto& vertex_json : vertices_member->value.GetArray()) {
++        if (!vertex_json.IsObject()) {
++          throw std::invalid_argument("risk-zone vertices must be objects");
++        }
++        const auto lat_member = vertex_json.FindMember("lat");
++        const auto lon_member = vertex_json.FindMember("lon");
++        if (lat_member == vertex_json.MemberEnd() || !lat_member->value.IsNumber() ||
++            lon_member == vertex_json.MemberEnd() || !lon_member->value.IsNumber()) {
++          throw std::invalid_argument("risk-zone vertices require numeric lat and lon");
++        }
++        const double lat = lat_member->value.GetDouble();
++        const double lon = lon_member->value.GetDouble();
++        if (!std::isfinite(lat) || !std::isfinite(lon) || lat < -90.0 || lat > 90.0 ||
++            lon < -180.0 || lon > 180.0) {
++          throw std::invalid_argument("risk-zone vertex coordinates are outside valid ranges");
++        }
++        auto* vertex = risk_zone->add_vertices();
++        vertex->set_lat(lat);
++        vertex->set_lon(lon);
++      }
++    }
++  }
+   JSON_PBF_RANGED_DEFAULT(co, kAlleyFactorRange, json, "/alley_factor", alley_factor, warnings);
+   JSON_PBF_RANGED_DEFAULT(co, kUseHighwaysRange, json, "/use_highways", use_highways, warnings);
+   JSON_PBF_RANGED_DEFAULT(co, kUseTollsRange, json, "/use_tolls", use_tolls, warnings);

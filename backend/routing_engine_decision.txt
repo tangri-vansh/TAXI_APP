@@ -1,0 +1,21 @@
+| Requirement | Valhalla | GraphHopper | OSRM |
+|---|---|---|---|
+| Road routing and stops | Supports road routes through ordered locations, producing route legs between successive points. | Supports road routes with multiple points. | Supports coordinates and waypoints in a route request. |
+| Historical risk at edge level | Its costing interface evaluates road edges at request time, which fits looking up the score for each edge’s midpoint. | Its weighting system assigns costs to road edges; custom Java weighting can add risk lookup. | Lua profiles influence the graph during preprocessing, so updating historical risk scores per request is a poor fit. |
+| `T(e) + β × R(e)` and 20% cap | Exact objective needs custom costing. Go can run the normal route, try a bounded series of β values, compare actual ETAs, and fall back to normal as specified. | Exact objective needs a custom weighting; built-in custom-model rules are less direct for this additive formula. Go would still enforce the ETA cap and retries. | The standard route API returns fastest routes and alternatives; scoring those alternatives cannot guarantee the minimum of the specified objective. |
+| Docker and project fit | Official Docker images can build and serve a graph from a mounted OSM extract. The extra effort is the custom C++ costing extension and its build. | A routing service can be deployed, but custom weighting adds Java implementation and service integration alongside Go. | Docker and integration are straightforward, but the query-time risk-cost requirement is the major mismatch. |
+| Recalculate after adding a stop | Re-request the road route with the driver’s current location, existing stops in sequence, the new stop, and destination. Compare actual road ETA/distance before persisting the stop and new route. | Same waypoint-based recalculation pattern. | Same waypoint-based recalculation pattern, but without the required dynamic risk objective. |
+
+## Decision
+
+Valhalla was selected because its runtime costing extension can apply the
+project's `Time(edge) + beta * Risk(edge)` objective during A* search. This
+fits the design better than scoring a limited set of OSRM alternative routes,
+which would not guarantee the minimum under that objective. OSRM's profiles
+are primarily applied while preparing the graph, making frequently changing
+risk scores awkward to apply per request. GraphHopper also supports custom
+weighting, but would add a Java service alongside the Go backend.
+
+Valhalla still requires a custom C++ costing patch and risk-zone data in each
+request. Its official Docker workflow and ordered-waypoint routing also fit
+the existing project stack and stop-handling needs.

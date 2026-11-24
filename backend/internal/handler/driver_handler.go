@@ -48,7 +48,8 @@ type driverLocationRequest struct {
 }
 
 type messageResponse struct {
-	Message string `json:"message"`
+	Message         string `json:"message"`
+	CompletedStopID *int64 `json:"completed_stop_id,omitempty"`
 }
 
 type availableDriversResponse struct {
@@ -102,13 +103,15 @@ func (h *DriverHandler) UpdateLocation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.driverLocationService.CreateLocation(
+	completedStopID, err := h.driverLocationService.CreateLocation(
 		r.Context(), driverID, *req.Latitude, *req.Longitude,
 	)
 	switch {
 	case err == nil:
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(messageResponse{Message: "Location updated successfully"})
+		_ = json.NewEncoder(w).Encode(messageResponse{
+			Message: "Location updated successfully", CompletedStopID: completedStopID,
+		})
 	case errors.Is(err, service.ErrInvalidLocation):
 		writeAPIError(w, http.StatusBadRequest, "INVALID_LOCATION", "Location coordinates are missing or invalid")
 	case errors.Is(err, service.ErrLocationDriverNotFound):

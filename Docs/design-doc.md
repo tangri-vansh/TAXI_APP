@@ -13,6 +13,8 @@ A ride-hailing app (Uber/Ola-inspired) differentiated by **Safe Mode**: historic
 
 **Stack:** React (frontend) · Go (backend) · PostgreSQL + PostGIS · external routing engine · Redis (later, for fast-changing data) · Kafka (later, only if justified) · Docker.
 
+**V1 pilot region:** Boston, using the Boston Police Department incident CSV documented in `design-doc_risk_fin.md`. Safe Mode is limited to overlapping Boston crime-data and road-graph coverage.
+
 **Architecture style:** Modular monolith — not microservices.
 
 **Explicitly out of V1 scope:** payments, ratings, coupons, driver earnings, complex authentication, ML crime prediction, Kubernetes, microservices, Kafka without a real need, an overbuilt frontend.
@@ -415,8 +417,9 @@ Stored as columns directly on `DRIVER` (not a separate `VEHICLE` table) — a dr
 | USER / DRIVER / DRIVER_LOCATION endpoint specs + errors | ✅ Done |
 | Auth approach | ✅ Decided (Option A, V1) |
 | Ride expiry / no-driver-available | 🕓 Deferred to WebSocket implementation |
-| Safe Mode (risk zones, scoring, route selection) | ⬜ Not started — Week 5 |
-| Go backend implementation | ⬜ Not started — Week 2 |
+| Safe Mode (risk zones, scoring, route selection) | 🟡 Boston mapping/import, grid validation, bounded retry/20% ETA cap, Valhalla edge-cost routing, route endpoint and five-pair evaluation implemented; measured reductions are modest |
+| Boston crime-data source and offense mapping | ✅ Deterministic code mapping documented; included incidents with valid coordinates imported; uncertain offenses excluded |
+| Go backend implementation | 🟡 User, driver, ride lifecycle, location, nearby-driver, route and stop endpoints implemented; Go tests pass |
 
 ---
 

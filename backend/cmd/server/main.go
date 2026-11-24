@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 
 	_ "github.com/lib/pq"
 
 	"safe-ride/internal/handler"
 	"safe-ride/internal/repository"
+	"safe-ride/internal/routing"
 	"safe-ride/internal/service"
 )
 
@@ -18,9 +21,10 @@ import (
 var db *sql.DB
 
 func initDB() {
-	// Connection cstring matching credentials from docker-compose.yml
-	//ssl mode needs to change when deploying
-	connStr := "host=localhost port=5432 user=postgres password=postgrespassword dbname=safe_ride sslmode=disable"
+	connStr := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	if connStr == "" {
+		log.Fatal("DATABASE_URL must contain the PostgreSQL connection string")
+	}
 
 	var err error
 	// Open opens a database specified by its driver name and driver-specific data source name
@@ -70,6 +74,20 @@ func main() {
 	driverLocationRepository := repository.NewDriverLocationRepository(db)
 	driverLocationService := service.NewDriverLocationService(driverLocationRepository)
 	driverHandler := handler.NewDriverHandler(driverService, driverLocationService)
+	rideRepository := repository.NewRideRepository(db)
+	rideService := service.NewRideService(rideRepository)
+	riskZoneRepository := repository.NewRiskZoneRepository(db)
+	riskZoneService := service.NewRiskZoneService(riskZoneRepository)
+	valhallaURL := os.Getenv("VALHALLA_URL")
+	if valhallaURL == "" {
+		valhallaURL = "http://localhost:8002"
+	}
+	valhallaClient := routing.NewValhallaClient(valhallaURL)
+	safeModeEngine := routing.NewSafeModeValhallaEngine(valhallaClient, riskZoneService, "boston_pd")
+	routeRepository := repository.NewRouteRepository(db)
+	rideRouteService := service.NewRideRouteService(rideRepository, routeRepository, valhallaClient, safeModeEngine)
+	rideStopService := service.NewRideStopService(rideRepository, rideRouteService)
+	rideHandler := handler.NewRideHandler(rideService, rideRouteService, rideStopService)
 
 	// 3. Create the HTTP router.
 	mux := http.NewServeMux()
@@ -82,6 +100,14 @@ func main() {
 	mux.HandleFunc("POST /drivers", driverHandler.CreateDriver)
 	mux.HandleFunc("POST /drivers/{driver_id}/location", driverHandler.UpdateLocation)
 	mux.HandleFunc("GET /drivers/available", driverHandler.GetAvailableDrivers)
+	mux.HandleFunc("POST /rides", rideHandler.CreateRide)
+	mux.HandleFunc("GET /rides/{ride_id}", rideHandler.GetRide)
+	mux.HandleFunc("GET /rides/{ride_id}/route", rideHandler.GetRoute)
+	mux.HandleFunc("POST /rides/{ride_id}/accept", rideHandler.AcceptRide)
+	mux.HandleFunc("POST /rides/{ride_id}/start", rideHandler.StartRide)
+	mux.HandleFunc("POST /rides/{ride_id}/complete", rideHandler.CompleteRide)
+	mux.HandleFunc("POST /rides/{ride_id}/cancel", rideHandler.CancelRide)
+	mux.HandleFunc("POST /rides/{ride_id}/stops", rideHandler.AddStop)
 
 	// 6. Start the HTTP server.
 	fmt.Println("Server running on http://localhost:8080")

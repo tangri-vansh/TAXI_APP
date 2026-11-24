@@ -134,10 +134,33 @@ A ride with no stops simply has zero `RIDE_STOP` rows — no special-casing need
 |---|---|
 | `route_id` (PK) | |
 | `ride_id` (FK) | |
-| `geometry` | Must account for 0+ waypoints from `RIDE_STOP`, not just pickup→destination |
-| `distance` | |
-| `eta` | |
-| `risk_score` | Used by Safe Mode |
+| `geometry` | JSONB array of Valhalla route-leg polylines and per-leg distance/ETA; includes pending `RIDE_STOP` waypoints |
+| `distance_km`, `eta_seconds` | Total road-route distance and travel time |
+| `risk_score` | Safe Mode risk exposure; NULL for Normal Mode |
+| `mode`, `safe_mode_used`, `fallback`, `fallback_reason` | Records the route-selection result |
+| `normal_duration_seconds`, `selected_beta`, `created_at` | Safe Mode comparison and snapshot metadata |
+
+**CRIME_INCIDENT**
+| Column | Notes |
+|---|---|
+| `crime_incident_id` (PK) | |
+| `source_name`, `source_incident_number`, `offense_code` | Together identify a source incident offense for idempotent imports |
+| `offense_description`, `risk_category`, `risk_weight` | Classification is from the deterministic Boston code mapping; excluded offenses are not stored |
+| `occurred_at`, `location` | `location` is a PostGIS geography point and is required for spatial scoring |
+| `source_snapshot_date` | Snapshot date used for the import |
+| `risk_zone_id` (nullable FK → RISK_ZONE) | Assigned when the risk-zone build runs |
+
+**RISK_ZONE**
+| Column | Notes |
+|---|---|
+| `risk_zone_id` (PK) | |
+| `source_name` | Incident source whose records contributed to this zone |
+| `grid_size_m`, `grid_center_x_m`, `grid_center_y_m` | Identifies the snapped square cell in UTM Zone 19N (EPSG:32619) |
+| `zone_geom` | 500m × 500m projected polygon; GiST indexed |
+| `incident_count`, `raw_risk`, `damped_risk`, `normalized_risk` | Per-cell count and design-formula score components |
+| `recency_half_life_days`, `scored_at` | Settings/reference time used for this scoring build |
+
+The risk-zone build replaces the current grid and score set atomically. Only populated cells are stored; missing cells mean risk data is unavailable, not a zero-risk observation. Historical score builds are not retained in V1.
 
 ---
 
@@ -318,14 +341,14 @@ Errors:
 - Ride exists · status = `ONGOING`
 - Caller is authorized on this ride
 - Location is valid
-- New stop's detour ≤ **20% distance** or **10 minutes** added ETA (whichever trips first)
+- New stop's road-route detour does not exceed **20% distance** or **10 minutes** added ETA; exceeding either limit rejects the stop
 - Time remaining to destination ≥ **5 minutes**
 
-**Changes:** Insert `RIDE_STOP` row (`sequence_order` server-assigned) · recompute `ROUTE.geometry/distance/eta` · notify driver
+**Changes:** Insert `RIDE_STOP` row (`sequence_order` server-assigned) · recompute the road route geometry/distance/ETA · notify driver when WebSocket notifications are implemented
 
 Request:
 ```json
-{ "location": { "lat": 15.5943, "lng": 73.8142 } }
+{ "rider_id": 21, "location": { "lat": 42.35, "lng": -71.06 } }
 ```
 Response:
 ```json
@@ -339,13 +362,19 @@ Errors:
 { "error": "INVALID_STOP_LOCATION", "message": "Stop location is missing or invalid" }
 { "error": "STOP_DETOUR_TOO_LARGE", "message": "Adding this stop increases the route by more than 20% or 10 minutes" }
 { "error": "STOP_ADD_WINDOW_EXPIRED", "message": "Stops cannot be added within 5 minutes of estimated arrival" }
+{ "error": "ROUTE_NOT_YET_AVAILABLE", "message": "A current road route is not available for this ride" }
+{ "error": "STOP_ADD_CONFLICT", "message": "The ride route changed; retry the stop request" }
 ```
-Thresholds are hardcoded as named constants for now (`MAX_DETOUR_PERCENT = 20`, `MAX_DETOUR_MINUTES = 10`, `MIN_TIME_BEFORE_DROPOFF_MINUTES = 5`) — tuning with real data is a later concern.
+Thresholds are hardcoded as named constants for now (`MaxStopDetourRatio = 0.20`, `MaxStopAddedDurationSecs = 600`, `MinTimeBeforeDropoffSecs = 300`) — tuning with real data is a later concern.
+
+The route comparison starts at the assigned driver's latest recorded location, follows existing pending stops in server-assigned order, and ends at the ride destination. The candidate route inserts the new stop before the destination. Route distance and ETA come from Valhalla road routing; straight-line distance is not used. The server rechecks the ride state, rider, and pending-stop count inside a transaction before inserting the stop, and commits its recalculated route snapshot in that same transaction.
 
 ---
 
 ### POST /drivers/{driver_id}/location
 **Purpose:** Log a new driver location ping (insert-only, every 30–45s).
+
+For the assigned driver on an ongoing ride, a ping within 50 meters of the next pending stop marks that stop `COMPLETED`. Only one stop is completed per ping, in sequence order, and the location insert and stop update share a transaction. The success response includes `completed_stop_id` when this happens.
 
 Errors:
 ```json
@@ -380,10 +409,31 @@ Errors:
 ```
 
 ### GET /rides/{ride_id}/route
-Read-only.
+Returns the latest saved route snapshot. If no route exists yet, it calculates a route from the ride's pickup, destination, and saved Safe Mode preference, saves the snapshot, and returns it. For an ongoing ride, each request refreshes the route from the driver's latest recorded location through pending stops in order, then persists that snapshot. It returns Valhalla's encoded road geometry per leg, distance, ETA, and Safe Mode/fallback metadata. The default Safe Mode beta schedule is `120, 60, 30, 15, 7.5`; beta is the per-edge penalty coefficient in seconds for a normalized risk score in [0,1]. This schedule is an initial implementation setting and should be calibrated during route-level evaluation.
+
+Example successful response:
+```json
+{
+  "ride_id": 42,
+  "mode": "SAFE_MODE",
+  "distance_km": 4.1,
+  "duration_seconds": 510,
+  "legs": [
+    { "distance_km": 4.1, "duration_seconds": 510, "shape": "encoded_polyline" }
+  ],
+  "safe_mode_used": true,
+  "fallback": false,
+  "risk_exposure": 8.25,
+  "normal_duration_seconds": 495,
+  "selected_beta": 30
+}
+```
+
+Each calculated route is persisted as a snapshot in `routes`. Adding an accepted stop saves its recalculated route in the same transaction as the stop. For an ongoing ride, route calculation uses the driver's latest recorded location and pending stops in sequence order.
 ```json
 { "error": "RIDE_NOT_FOUND", "message": "No ride exists with this ID" }
 { "error": "ROUTE_NOT_YET_AVAILABLE", "message": "Route has not been computed for this ride yet" }
+{ "error": "ROUTING_UNAVAILABLE", "message": "Could not calculate a route for this ride" }
 ```
 
 ---
@@ -408,12 +458,18 @@ Stored as columns directly on `DRIVER` (not a separate `VEHICLE` table) — a dr
 ## 7. Safe Mode Design
 
 ### A. What is a risk zone?
-A fixed grid cell, **500m × 500m** (placeholder — to be validated against the actual dataset's incident-per-cell distribution once implementation starts; if most cells show very few incidents, widen to 750m–1km to avoid noisy single-incident cells).
+A fixed grid cell, **500m × 500m** in Boston's UTM Zone 19N projection (EPSG:32619). Validation on the 85,921 mapped incidents with usable coordinates found 503 populated 500m cells (mean 170.8 incidents/cell, median 53, 90th percentile 344, and 4.8% singleton cells). This is sufficiently dense for V1; retain 500m rather than widening to 750m–1km. Revalidate if the dataset or supported region changes materially.
 
 ### Data source
-Point-level crime data (Kaggle synthetic dataset — `crime_id, city, date, time, location, lat, long, crime_severity, type, police_response_type` columns retained; `ride_id`, `pickup/drop location`, `suspect_arrested` dropped as irrelevant). Labeled in the README as illustrative/unverified data, since India does not publicly release geocoded incident-level crime data.
+V1 uses the Boston Police Department crime incident CSV currently stored as `tmpivat4nah.csv`. The inspected snapshot contains 305,787 rows dated 2023-01-01 through 2026-10-19, with 123 distinct `OFFENSE_DESCRIPTION` values. `Lat` and `Long` are usable for 292,083 rows. Incidents without valid coordinates and offenses excluded by the mapping are not inserted into the spatial incident table; their counts are recorded by the source inventory and import output. The source dataset is updated over time and may be preliminary or revised; record the source and import snapshot date with each data load.
 
-**Fields used:** `type`, `date` (for recency). `crime_severity` is **excluded** — its derivation method is unknown/unverifiable, so it is not trusted as a multiplier. `fraud` is **excluded** from `type` — it's a financial crime, not relevant to physical route safety.
+This is reported police incident data, not a complete measure of crime or personal safety. Coordinate coverage and reporting practices can vary by incident type. Do not imply that a mapped point is an exact event address.
+
+**Fields used:** `INCIDENT_NUMBER` (source identity/deduplication analysis), `OFFENSE_CODE`, `OFFENSE_DESCRIPTION` (classification input), `OCCURRED_ON_DATE` (recency), `Lat`, and `Long`. The local CSV's `OFFENSE_CODE_GROUP` and `UCR_PART` fields are empty, so they are not classification sources. A deterministic code-based mapping is documented in `Docs/boston_offense_mapping.md` and `backend/data/boston_offense_mapping.csv`; excluded and ambiguous offenses are not imported or scored. Do not infer categories from free text at request time. Unmapped offenses must not silently receive a risk weight.
+
+The established weights are retained through the Boston categories: `violent_person_offense` and `robbery` = 1.0; `harassment_threats` = 0.8; `theft` and `vehicle_theft` = 0.5; `burglary` and `property_damage` = 0.3. Fraud and offenses outside the approved physical-safety taxonomy are excluded. Do not use offense labels as an unverified severity multiplier.
+
+The initial supported Safe Mode region is the Boston area covered by both the incident data and the configured road graph. Outside that coverage, the system must not present a Boston-derived risk score as applicable; define the API/UI behavior as unsupported coverage or unavailable Safe Mode before release.
 
 ### B. Risk score formula
 
@@ -423,8 +479,9 @@ DampedRisk(zone) = log(1 + RawRisk(zone))
 NormRisk(zone)   = (DampedRisk(zone) − min_all_zones) / (max_all_zones − min_all_zones)     → range [0, 1]
 ```
 
-- `w_type`: `assault = 1.0`, `harassment = 0.8`, `theft = 0.5`, `burglary = 0.3`, `fraud = excluded`
-- `recency_weight(i) = 0.5 ^ (days_since_incident_i / 180)` — 180-day half-life; an incident's weight halves every 6 months
+- `w_type`: `violent_person_offense = 1.0`, `robbery = 1.0`, `harassment_threats = 0.8`, `theft = 0.5`, `vehicle_theft = 0.5`, `burglary = 0.3`, `property_damage = 0.3`; excluded categories have no score
+- `recency_weight(i; H) = 0.5 ^ (days_since_incident_i / H)`, where `H` is the centrally configured recency half-life in days, default `365` (one year). An incident's weight halves every `H` days.
+- Keep `H` fixed for each risk-score build, never vary it by rider or route, and record it with the build for reproducibility. It may be recalibrated after evaluation of the Boston data.
 - Log-damping + min-max normalization prevent a small number of extreme-frequency zones from dominating the score and keep `NormRisk` on a predictable [0,1] scale, making `β` in the cost function tunable and interpretable
 
 This is a simplified version of established hotspot-mapping methods (kernel density estimation, and specifically ProMap's decay-weighted incident summation) — not an arbitrary invented formula.
@@ -433,7 +490,7 @@ This is a simplified version of established hotspot-mapping methods (kernel dens
 ```
 Risk(edge) = NormRisk(zone containing edge's midpoint)
 ```
-No separate proximity buffer — the grid cell itself already defines "nearby."
+No separate proximity buffer — the grid cell itself already defines "nearby." The current build stores populated incident cells only; an absent cell means risk data is unavailable there, not that its risk is zero. Safe Mode route integration must preserve this distinction.
 
 ### D. Routing cost function
 Only active when Safe Mode is explicitly selected; Normal Mode is unaffected.
@@ -477,10 +534,11 @@ A* alone doesn't guarantee this — a bounded search loop around it is needed:
 | ER / database schema | ✅ Done |
 | Ride state machine + transition table | ✅ Done |
 | RIDE endpoint specs + errors | ✅ Done |
-| USER / DRIVER / DRIVER_LOCATION endpoint specs + errors | ✅ Done || Auth approach | ✅ Decided (Option A, V1) |
+| USER / DRIVER / DRIVER_LOCATION endpoint specs + errors | ✅ Done |
+| Auth approach | ✅ Decided (Option A, V1) |
 | Ride expiry / no-driver-available | 🕓 Deferred to WebSocket implementation |
-| Safe Mode (risk zones, scoring, route selection) | ✅ Design done — grid size to be validated against real data at implementation time |
-| Go backend implementation | ⬜ Not started — Week 2 |
+| Safe Mode (risk zones, scoring, route selection) | 🟡 Boston mapping/import, grid validation, scoring, Go midpoint lookup/cost calculation, bounded retry/20% detour/fallback, Valhalla edge-cost integration, stop-aware routing, route snapshots, and an initial five-pair evaluation implemented; measured risk-exposure reductions are modest and should be improved with targeted route-pair analysis |
+| Go backend implementation | 🟡 Core user, driver, ride lifecycle, location, nearby-driver, routing, ride-stop, and route-persistence endpoints implemented; automated Go tests pass |
 
 ---
 
