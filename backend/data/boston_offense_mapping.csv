@@ -1,0 +1,123 @@
+offense_code,risk_category,risk_weight,include,rationale
+111,violent_person_offense,1.0,True,"Person-directed violence, homicide, kidnapping, or affray; existing violent-offense weight."
+121,,0,False,Vehicle manslaughter is excluded with traffic incidents.
+122,violent_person_offense,1.0,True,"Person-directed violence, homicide, kidnapping, or affray; existing violent-offense weight."
+301,robbery,1.0,True,Robbery involves force or threat; reuses the violent-offense weight. The source does not identify carjacking separately.
+423,violent_person_offense,1.0,True,"Person-directed violence, homicide, kidnapping, or affray; existing violent-offense weight."
+520,burglary,0.3,True,"Burglary, vehicle break-in, or possession of burglary tools; existing burglary weight."
+530,burglary,0.3,True,"Burglary, vehicle break-in, or possession of burglary tools; existing burglary weight."
+531,burglary,0.3,True,"Burglary, vehicle break-in, or possession of burglary tools; existing burglary weight."
+540,burglary,0.3,True,"Burglary, vehicle break-in, or possession of burglary tools; existing burglary weight."
+611,theft,0.5,True,Larceny offenses; existing theft weight.
+612,theft,0.5,True,Larceny offenses; existing theft weight.
+613,theft,0.5,True,Larceny offenses; existing theft weight.
+614,theft,0.5,True,Larceny offenses; existing theft weight.
+615,theft,0.5,True,Larceny offenses; existing theft weight.
+616,theft,0.5,True,Larceny offenses; existing theft weight.
+617,theft,0.5,True,Larceny offenses; existing theft weight.
+618,theft,0.5,True,Larceny offenses; existing theft weight.
+619,theft,0.5,True,Larceny offenses; existing theft weight.
+706,vehicle_theft,0.5,True,Vehicle theft; reuses the theft weight and is not labeled as carjacking.
+724,vehicle_theft,0.5,True,Vehicle theft; reuses the theft weight and is not labeled as carjacking.
+727,vehicle_theft,0.5,True,Vehicle theft; reuses the theft weight and is not labeled as carjacking.
+735,,0,False,Recovered vehicle; recovery location is not the theft location.
+736,,0,False,Supplemental recovered-vehicle record; recovery location is not the theft location.
+801,violent_person_offense,1.0,True,"Person-directed violence, homicide, kidnapping, or affray; existing violent-offense weight."
+900,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+990,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+1001,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+1102,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+1106,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+1107,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+1108,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+1109,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+1201,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+1300,,0,False,Possession location may differ from the original theft location.
+1304,,0,False,"Recovery record, not a new theft incident."
+1402,property_damage,0.3,True,Vandalism and graffiti; reuses the existing burglary/property weight.
+1415,property_damage,0.3,True,Vandalism and graffiti; reuses the existing burglary/property weight.
+1501,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+1601,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+1602,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+1603,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+1810,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+1825,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+1831,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+1832,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+1903,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2101,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2102,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2204,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2401,violent_person_offense,1.0,True,"Person-directed violence, homicide, kidnapping, or affray; existing violent-offense weight."
+2403,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2604,,0,False,Extortion/blackmail does not have a clear fit in the existing categories.
+2608,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2610,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2612,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2613,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2616,burglary,0.3,True,"Burglary, vehicle break-in, or possession of burglary tools; existing burglary weight."
+2618,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2619,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2622,violent_person_offense,1.0,True,"Person-directed violence, homicide, kidnapping, or affray; existing violent-offense weight."
+2628,harassment_threats,0.8,True,"Harassment, bodily-harm threats, obscene calls, or witness intimidation; existing harassment weight."
+2632,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2642,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2646,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2647,harassment_threats,0.8,True,"Harassment, bodily-harm threats, obscene calls, or witness intimidation; existing harassment weight."
+2648,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2657,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2660,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2662,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2670,harassment_threats,0.8,True,"Harassment, bodily-harm threats, obscene calls, or witness intimidation; existing harassment weight."
+2905,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2907,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+2914,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3001,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3004,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3006,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3007,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3008,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3016,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3018,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3029,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3106,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3108,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3110,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3111,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3112,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3114,,0,False,Investigation-only record without a specific offense classification.
+3115,,0,False,Investigation-only record without a specific offense classification.
+3116,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3119,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3122,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3123,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3125,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3126,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3130,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3170,harassment_threats,0.8,True,"Harassment, bodily-harm threats, obscene calls, or witness intimidation; existing harassment weight."
+3201,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3202,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3203,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3205,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3207,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3301,,0,False,A verbal dispute alone does not establish a crime or physical threat.
+3304,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3305,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3402,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3403,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3410,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3501,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3502,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3503,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3625,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3801,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3802,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3803,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3805,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3807,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3810,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3811,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3820,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3821,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3830,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
+3831,,0,False,Outside the retained crime categories or too ambiguous for a consistent risk classification.
